@@ -104,42 +104,71 @@ image_urls = [
 async def add_auth_user(client: Client, message: Message):
     if message.chat.id != OWNER:
         return 
+    
     try:
-        new_user_id = int(message.command[1])
-        if new_user_id in AUTH_USERS:
-            await message.reply_text("**User ID is already authorized.**")
-        else:
-            AUTH_USERS.append(new_user_id)
-            await message.reply_text(f"**User ID `{new_user_id}` added to authorized users.**")
-            await bot.send_message(chat_id=new_user_id, text=f"<b>Great! You are added in Premium Membership!</b>")
+        user_id = int(message.command[1])
+        days = int(message.command[2])
+
+        expiry = add_user(user_id, days)
+
+        await message.reply_text(
+            f"✅ User `{user_id}` added for {days} days.\n"
+            f"Expires: {expiry.strftime('%d-%m-%Y')}"
+        )
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"<b>🎉 Premium Activated for {days} days!</b>"
+        )
+
     except (IndexError, ValueError):
-        await message.reply_text("**Please provide a valid user ID.**")
+        await message.reply_text(
+            "Use format:\n/addauth user_id days\n\nExample:\n/addauth 123456789 30"
+        )
 
 @bot.on_message(filters.command("users") & filters.private)
-async def list_auth_users(client: Client, message: Message):
+import sqlite3
+
+@bot.on_message(filters.command("users") & filters.private)
+async def list_premium_users(client: Client, message: Message):
     if message.chat.id != OWNER:
         return
-    
-    user_list = '\n'.join(map(str, AUTH_USERS))  # AUTH_USERS ki list dikhayenge
-    await message.reply_text(f"**Authorized Users:**\n{user_list}")
 
+    conn = sqlite3.connect("premium.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, expiry_date FROM premium_users")
+    users = cursor.fetchall()
+    conn.close()
+
+    if not users:
+        return await message.reply_text("No premium users found.")
+
+    text = "📋 Premium Users:\n\n"
+    for user in users:
+        text += f"ID: {user[0]}\nExpires: {user[1]}\n\n"
+
+    await message.reply_text(text)
+    
+@bot.on_message(filters.command("rmauth") & filters.private)
 @bot.on_message(filters.command("rmauth") & filters.private)
 async def remove_auth_user(client: Client, message: Message):
     if message.chat.id != OWNER:
         return
     
     try:
-        user_id_to_remove = int(message.command[1])
-        if user_id_to_remove not in AUTH_USERS:
-            await message.reply_text("**User ID is not in the authorized users list.**")
-        else:
-            AUTH_USERS.remove(user_id_to_remove)
-            await message.reply_text(f"**User ID `{user_id_to_remove}` removed from authorized users.**")
-            await bot.send_message(chat_id=user_id_to_remove, text=f"<b>Oops! You are removed from Premium Membership!</b>")
+        user_id = int(message.command[1])
+        remove_user(user_id)
+
+        await message.reply_text(f"✅ User `{user_id}` removed.")
+
+        await bot.send_message(
+            chat_id=user_id,
+            text="<b>❌ Your Premium Membership has been removed.</b>"
+        )
+
     except (IndexError, ValueError):
-        await message.reply_text("**Please provide a valid user ID.**")
-
-
+        await message.reply_text("Use format:\n/rmauth user_id")
+        
 @bot.on_message(filters.command("broadcast") & filters.private)
 async def broadcast_handler(client: Client, message: Message):
     if message.chat.id != OWNER:
