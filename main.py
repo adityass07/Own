@@ -24,6 +24,8 @@ from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_U
 from flask import Flask
 import threading
 import os
+from premium_db import add_user, remove_user, is_premium, get_expiry
+from datetime import datetime
 
 app_web = Flask(__name__)
 
